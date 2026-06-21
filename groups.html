@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groups Sender</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 0;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: #222;
+            color: white;
+            padding: 15px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        textarea,
+        input,
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        .send-btn {
+            background: #2196F3;
+            color: white;
+        }
+
+        .home-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .group-box {
+            border: 1px solid #ddd;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .group-item {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+
+        .group-item.selected {
+            background: #d0ebff;
+            border: 1px solid #74c0fc;
+        }
+
+        #fileSection {
+            display: none;
+        }
+
+        #result {
+            margin-top: 15px;
+            font-weight: normal;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            background: #fafafa;
+            padding: 10px;
+            margin-top: 8px;
+            border-radius: 6px;
+        }
+
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header">
+    <h2>WhatsApp Groups Sender</h2>
+</div>
+
+<div class="container">
+
+    <!-- MODE -->
+    <label><b>Mode</b></label>
+    <select id="mode" onchange="changeMode()">
+        <option value="message">Send Message</option>
+        <option value="file">Send File</option>
+    </select>
+
+    <!-- GROUPS -->
+    <label><b>Select Groups</b></label>
+    <div id="groupsContainer" class="group-box">
+        Loading groups...
+    </div>
+
+    <!-- MESSAGE -->
+    <div id="messageSection">
+        <label><b>Message</b></label>
+        <textarea id="message" rows="6"></textarea>
+    </div>
+
+    <!-- FILE -->
+    <div id="fileSection">
+        <label><b>Caption</b></label>
+        <textarea id="caption" rows="4"></textarea>
+
+        <label><b>Attachment</b></label>
+        <input type="file" id="attachment">
+    </div>
+
+    <button class="send-btn" onclick="send()">Send</button>
+    <button class="home-btn" onclick="goHome()">Home</button>
+
+    <div id="result"></div>
+
+</div>
+
+<!-- API ENDPOINTS -->
+<script src="api.endpoints.js"></script>
+<script>
+
+/* AUTH */
+function token() {
+    return localStorage.getItem("token");
+}
+
+function checkAuth() {
+    if (!token()) {
+        window.location.href = "login.html";
+    }
+}
+
+/* MODE */
+function changeMode() {
+    const mode = document.getElementById("mode").value;
+
+    document.getElementById("messageSection").style.display =
+        mode === "message" ? "block" : "none";
+
+    document.getElementById("fileSection").style.display =
+        mode === "file" ? "block" : "none";
+}
+
+/* LOAD GROUPS */
+async function loadGroups() {
+
+    const box = document.getElementById("groupsContainer");
+
+    try {
+
+        const res = await fetch(API.base + API.groups.list, {
+            headers: {
+                Authorization: "Bearer " + token()
+            }
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+            box.innerHTML = data.error || "Failed to load groups";
+            return;
+        }
+
+        box.innerHTML = "";
+
+        data.groups.forEach(g => {
+
+            const div = document.createElement("div");
+            div.className = "group-item";
+
+            div.innerHTML = `
+                <label>
+                    <input type="checkbox" value="${g.id}">
+                    ${g.name}
+                </label>
+            `;
+
+            const checkbox = div.querySelector("input");
+
+            checkbox.addEventListener("change", () => {
+                div.classList.toggle("selected", checkbox.checked);
+            });
+
+            box.appendChild(div);
+        });
+
+    } catch (err) {
+        box.innerHTML = "Error: " + err.message;
+    }
+}
+
+/* SELECTED GROUPS */
+function selectedGroups() {
+    return Array.from(
+        document.querySelectorAll("#groupsContainer input:checked")
+    ).map(x => x.value);
+}
+
+/* SEND CONTROLLER */
+async function send() {
+    const mode = document.getElementById("mode").value;
+
+    if (mode === "message") {
+        await sendMessage();
+    } else {
+        await sendFile();
+    }
+}
+
+/* RENDER RESULT (NEW FRIENDLY UI) */
+function renderResult(data) {
+
+    const result = document.getElementById("result");
+
+    let html = "";
+
+    if (data.success !== undefined) {
+        html += `<div class="${data.success ? 'success' : 'error'}">
+            ${data.success ? "✅ Message Sent Successfully" : "❌ Failed to Send"}
+        </div>`;
+    }
+
+    if (data.total !== undefined) {
+        html += `<div><b>Total:</b> ${data.total}</div>`;
+    }
+
+    if (data.sent !== undefined) {
+        html += `<div class="success"><b>Sent:</b> ${data.sent}</div>`;
+    }
+
+    if (data.failed !== undefined) {
+        html += `<div class="error"><b>Failed:</b> ${data.failed}</div>`;
+    }
+
+    if (Array.isArray(data.results)) {
+        html += `<hr><b>Details:</b>`;
+
+        data.results.forEach((r, i) => {
+            html += `
+                <div class="card">
+                    <b>${i + 1}.</b> ${r.phone || r.group || "Unknown"} <br>
+                    ${r.success
+                        ? `<span class="success">✔ Sent successfully</span>`
+                        : `<span class="error">✖ ${r.error || "Failed"}</span>`
+                    }
+                </div>
+            `;
+        });
+    }
+
+    result.innerHTML = html;
+}
+
+/* MESSAGE */
+async function sendMessage() {
+
+    const result = document.getElementById("result");
+
+    const groupIds = selectedGroups();
+    const message = document.getElementById("message").value;
+
+    if (!groupIds.length) {
+        result.innerHTML = "⚠ Please select at least one group";
+        return;
+    }
+
+    try {
+
+        result.innerHTML = "⏳ Sending message...";
+
+        const res = await fetch(API.base + API.groups.send, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + token()
+            },
+            body: JSON.stringify({
+                groupIds,
+                message
+            })
+        });
+
+        const data = await res.json();
+
+        renderResult(data);
+
+    } catch (err) {
+        result.innerHTML = "❌ " + err.message;
+    }
+}
+
+/* FILE */
+async function sendFile() {
+
+    const result = document.getElementById("result");
+
+    const groupIds = selectedGroups();
+    const caption = document.getElementById("caption").value;
+    const file = document.getElementById("attachment").files[0];
+
+    if (!groupIds.length) {
+        result.innerHTML = "⚠ Please select at least one group";
+        return;
+    }
+
+    if (!file) {
+        result.innerHTML = "⚠ Please select a file";
+        return;
+    }
+
+    const formData = new FormData();
+
+    formData.append("caption", caption);
+    formData.append("attachment", file);
+
+    groupIds.forEach(id => {
+        formData.append("groupIds", id);
+    });
+
+    try {
+
+        result.innerHTML = "⏳ Uploading file...";
+
+        const res = await fetch(API.base + API.groups.sendFile, {
+            method: "POST",
+            headers: {
+                Authorization: "Bearer " + token()
+            },
+            body: formData
+        });
+
+        const data = await res.json();
+
+        renderResult(data);
+
+    } catch (err) {
+        result.innerHTML = "❌ " + err.message;
+    }
+}
+
+/* HOME */
+function goHome() {
+    window.location.href = "home.html";
+}
+
+/* INIT */
+checkAuth();
+changeMode();
+loadGroups();
+
+</script>
+
+</body>
+</html>

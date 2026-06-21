@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sign Up</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #f5f5f5;
+        }
+
+        .box {
+            width: 320px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: green;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background: gray;
+            cursor: not-allowed;
+        }
+
+        .msg {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>Sign Up</h2>
+
+    <input id="name" placeholder="Name">
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+
+    <button id="btn" onclick="signup()">Create Account</button>
+
+    <div class="msg" id="msg"></div>
+
+    <p>Already have account? <a href="login.html">Login</a></p>
+</div>
+
+<!-- API ENDPOINTS -->
+<script src="api.endpoints.js"></script>
+<script>
+
+async function signup() {
+
+    const btn =
+        document.getElementById("btn");
+
+    const msg =
+        document.getElementById("msg");
+
+    const name =
+        document.getElementById("name").value;
+
+    const email =
+        document.getElementById("email").value;
+
+    const password =
+        document.getElementById("password").value;
+
+    if (!name || !email || !password) {
+        msg.innerHTML =
+            "⚠️ All fields are required";
+        return;
+    }
+
+    try {
+
+        btn.disabled = true;
+        btn.innerText = "Creating...";
+
+        msg.innerHTML = "";
+
+        const res =
+            await fetch(
+                API.base + API.auth.signup,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        password
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        if (data.success) {
+
+            msg.innerHTML =
+                "✅ Account created successfully";
+
+            setTimeout(() => {
+                window.location.href =
+                    "login.html";
+            }, 1000);
+
+        } else {
+
+            msg.innerHTML =
+                "❌ " + (data.error || "Signup failed");
+
+        }
+
+    } catch (err) {
+
+        msg.innerHTML =
+            "❌ " + err.message;
+
+    } finally {
+
+        btn.disabled = false;
+        btn.innerText = "Create Account";
+
+    }
+}
+
+</script>
+
+</body>
+</html>
