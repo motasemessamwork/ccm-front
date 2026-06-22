@@ -133,18 +133,38 @@ async function createSession(sessionId) {
 }
 
 function getChromeExecutablePath() {
-    const envPath = process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
+    const envPath = process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || process.env.BROWSER_PATH;
     if (envPath && fs.existsSync(envPath)) {
         console.log("Using browser from environment path:", envPath);
         return envPath;
     }
 
-    const candidates = [
+    const windowsCandidates = [
         "C:/Program Files/Google/Chrome/Application/chrome.exe",
         "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
         "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
         "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
     ];
+
+    const linuxCandidates = [
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",
+        "/usr/bin/microsoft-edge",
+        "/usr/bin/msedge"
+    ];
+
+    const macCandidates = [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
+    ];
+
+    const candidates = process.platform === "win32"
+        ? windowsCandidates
+        : process.platform === "darwin"
+            ? macCandidates
+            : linuxCandidates;
 
     for (const candidate of candidates) {
         if (fs.existsSync(candidate)) {
@@ -153,7 +173,11 @@ function getChromeExecutablePath() {
         }
     }
 
-    console.warn("No explicit browser executable found; falling back to Puppeteer default.");
+    const platformHint = process.platform === "linux"
+        ? "Install Chrome/Chromium inside the container or set CHROME_PATH/BROWSER_PATH to a valid browser executable."
+        : "Set CHROME_PATH/BROWSER_PATH to a valid browser executable.";
+
+    console.warn("No explicit browser executable found; falling back to Puppeteer default.", platformHint);
     return undefined;
 }
 
