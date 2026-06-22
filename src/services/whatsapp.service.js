@@ -35,6 +35,11 @@ async function createSession(sessionId) {
 
     if (chromePath) {
         puppeteerOptions.executablePath = chromePath;
+    } else {
+        console.warn(
+            "No browser executable resolved. Puppeteer will attempt the bundled Chromium. " +
+            "In Linux containers, install Chrome/Chromium and set CHROME_PATH/BROWSER_PATH if this fails."
+        );
     }
 
     const client = new Client({
