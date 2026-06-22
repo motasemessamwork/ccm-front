@@ -1,3 +1,4 @@
+const fs = require("fs");
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode");
 
@@ -19,23 +20,28 @@ async function createSession(sessionId) {
 
     // cleanSessionCache(sessionId);
 
+    const chromePath = getChromeExecutablePath();
+    const puppeteerOptions = {
+        headless: true,
+        args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--disk-cache-size=0",
+            "--media-cache-size=0"
+        ]
+    };
+
+    if (chromePath) {
+        puppeteerOptions.executablePath = chromePath;
+    }
+
     const client = new Client({
         authStrategy: new LocalAuth({
             clientId: sessionId
         }),
-        puppeteer: {
-            headless: true,
-            executablePath:
-                "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-            args: [
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-gpu",
-                "--disable-dev-shm-usage",
-                "--disk-cache-size=0",
-                "--media-cache-size=0"
-            ],
-        },
+        puppeteer: puppeteerOptions,
         authTimeoutMs: 120000
     });
 
@@ -124,6 +130,31 @@ async function createSession(sessionId) {
         });
     
     return sessions[sessionId];
+}
+
+function getChromeExecutablePath() {
+    const envPath = process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (envPath && fs.existsSync(envPath)) {
+        console.log("Using browser from environment path:", envPath);
+        return envPath;
+    }
+
+    const candidates = [
+        "C:/Program Files/Google/Chrome/Application/chrome.exe",
+        "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+        "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+        "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+    ];
+
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            console.log("Found browser executable at:", candidate);
+            return candidate;
+        }
+    }
+
+    console.warn("No explicit browser executable found; falling back to Puppeteer default.");
+    return undefined;
 }
 
 module.exports = {
